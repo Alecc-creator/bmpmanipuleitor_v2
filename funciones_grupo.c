@@ -4,6 +4,7 @@ bool verbose = false;
 
 int procesar_imagen (int argc, char* argv[])
 {
+    int ret;
     for(int i = 1; i < argc; i++)
     {
         if(strcmp(argv[i], "--help") == 0)
@@ -49,7 +50,13 @@ int procesar_imagen (int argc, char* argv[])
         fclose(archEntrada);
         return ERROR_MEMORIA;
     }
-    cargarMatriz(archEntrada, matriz, &header);
+    ret = cargarMatriz(archEntrada, matriz, &header);
+    if(ret != EXITO)
+    {
+        liberarMatriz(matriz, header.alto);
+        fclose(archEntrada);
+        return ret;
+    }
 
     t_header header2;
     const char * imagen2 = NULL;
@@ -83,7 +90,15 @@ int procesar_imagen (int argc, char* argv[])
             fclose(archEntrada2);
             return ERROR_MEMORIA;
         }
-        cargarMatriz(archEntrada2, matriz2, &header2);
+        ret = cargarMatriz(archEntrada2, matriz2, &header2);
+        if(ret != EXITO)
+        {
+            liberarMatriz(matriz, header.alto);
+            liberarMatriz(matriz2, header2.alto);
+            fclose(archEntrada);
+            fclose(archEntrada2);
+            return ret;
+        }
     }
 
     t_pixel ** matrizCopia = crearMatriz(header.alto, header.ancho);
@@ -147,7 +162,7 @@ int procesar_imagen (int argc, char* argv[])
                             liberarMatriz(matriz2, header2.alto);
                             fclose(archEntrada2);
                         }
-                        return BMP_INVALIDO;
+                        return ERROR_BMP_INVALIDO;
                     }
 
                     bmpValidado = true;
@@ -321,9 +336,13 @@ int encontrarImagenes (char* argv[], char * bmpEncontrados[MAX_BMP])
     return cantBmp;
 }
 
-bool validar_bmp (t_header * header)
+int validar_bmp(t_header* header)
 {
-    bool valido = true;
+    if(header == NULL)
+    {
+        printf("ERROR: Cabecera invalida.\n");
+        return ERROR_ARGUMENTOS;
+    }
 
     if(verbose)
         printf("[INFO] Validando header bmp...\n");
@@ -331,37 +350,31 @@ bool validar_bmp (t_header * header)
     if(header->firma[0] != 'B' || header->firma[1] != 'M')
     {
         printf("Firma invalida.\n");
-        valido = false;
+        return ERROR_BMP_INVALIDO;
     }
 
     if(header->ancho < 1 || header->alto < 1)
     {
-        printf("Dimensiones invalidas. Minimo: 1x1). Actual: %ux%u.\n", header->ancho, header->alto);
-        valido = false;
+        printf("Dimensiones invalidas. Minimo: 1x1. Actual: %ux%u.\n", header->ancho, header->alto);
+        return ERROR_BMP_INVALIDO;
     }
 
     if(header->bits != 24)
     {
         printf("Profundidad de bits invalida. Requerida: 24 bits. Actual: %hu bits.\n", header->bits);
-        valido = false;
+        return ERROR_BMP_INVALIDO;
     }
 
     if(header->compresion != 0)
     {
         printf("Imagen comprimida.\n");
-        valido = false;
+        return ERROR_BMP_INVALIDO;
     }
 
     if(verbose)
-    {
-        if(valido)
-            printf("[INFO] Archivo valido - Dimensiones: %ux%u, Tamaño: %'u bytes\n", header->ancho, header->alto, header->tamArchivo);
+        printf("[INFO] Archivo valido - Dimensiones: %ux%u, Tamaño: %u bytes\n", header->ancho, header->alto, header->tamArchivo);
 
-        else
-            printf("[INFO] Archivo invalido\n");
-    }
-
-    return valido;
+    return EXITO;
 }
 
 t_pixel** crearMatriz (int filas, int col)
@@ -369,31 +382,16 @@ t_pixel** crearMatriz (int filas, int col)
     if(verbose)
         printf("[INFO] Reservando memoria para matriz %dx%d...\n", filas, col);
 
-    t_pixel **matriz = malloc(filas * sizeof(t_pixel*));
-    if(!matriz)
+    t_pixel** matriz = crearMatrizGenerica(filas, col, sizeof(t_pixel));
+
+    if(matriz == NULL)
     {
         printf("Error al asignar memoria\n");
         return NULL;
     }
 
-    for(int i = 0; i < filas; i++)
-    {
-        matriz[i] = malloc(col * sizeof(t_pixel));
-
-        if(!matriz[i])
-        {
-            for(int j = 0; j < i; j++)
-            {
-                free(matriz[j]);
-            }
-            free(matriz);
-            printf("Error al asignar memoria\n");
-            return NULL;
-        }
-    }
-
     if(verbose)
-        printf("[INFO] Memoria reservada exitosamente (%d pixeles)\n", filas * col * BYTES_X_PIXEL);
+        printf("[INFO] Memoria reservada exitosamente (%lu bytes)\n", (unsigned long)((size_t)filas * col * sizeof(t_pixel)));
 
     return matriz;
 }
@@ -403,11 +401,7 @@ void liberarMatriz (t_pixel** mat, int filas)
     if(verbose)
         printf("[INFO] Liberando memoria...\n");
 
-    for(int i = 0; i < filas; i++)
-    {
-        free(mat[i]);
-    }
-    free(mat);
+    destruirMatrizGenerica(mat, filas);
 }
 
 void guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf)
@@ -465,9 +459,14 @@ void generarNombreArchivo (const char * prefijo, const char * nombreArch, const 
     strcat(resultado, nombreBase);
 }
 
-void limpiarNombreArchivo(char* cad_nombre)
+int limpiarNombreArchivo(char* cad_nombre)
 {
+    if(cad_nombre == NULL)
+        return ERROR_ARGUMENTOS;
+
     *cad_nombre = '\0';
+
+    return EXITO;
 }
 
 bool esParametroUtilidad (const char * opcion)
@@ -542,27 +541,56 @@ FILE* abrir_archivo (const char * path, const char * metodo)
     return pf;
 }
 
-void cargarMatriz (FILE * pf, t_pixel ** mat, t_header * header)
+int cargarMatriz(FILE* pf, t_pixel** mat, t_header* header)
 {
-    long posInicial = ftell(pf);
-    fseek(pf, header->offsetDatos, SEEK_SET);
+    if(pf == NULL || mat == NULL || header == NULL)
+        return ERROR_ARGUMENTOS;
 
-    for(int i = 0; i < header->alto; i++)
+    long posInicial = ftell(pf);
+
+    if(posInicial == -1L)
+        return ERROR_ARCHIVO;
+
+    if(fseek(pf, header->offsetDatos, SEEK_SET) != 0)
     {
-        for(int j = 0; j < header->ancho; j++)
-        {
-            fread(&mat[i][j], sizeof(t_pixel), 1, pf);
-        }
-        fseek(pf, header->padding, SEEK_CUR);
+        fseek(pf, posInicial, SEEK_SET);
+        return ERROR_ARCHIVO;
     }
 
     if(verbose)
-    {
         printf("[INFO] Leyendo datos de imagen...\n");
-        printf("[INFO] Datos cargados correctamente\n");
+
+    for(unsigned int i = 0; i < header->alto; i++)
+    {
+        if(mat[i] == NULL)
+        {
+            fseek(pf, posInicial, SEEK_SET);
+            return ERROR_ARGUMENTOS;
+        }
+
+        for(unsigned int j = 0; j < header->ancho; j++)
+        {
+            if(fread(&mat[i][j], sizeof(t_pixel), 1, pf) != 1)
+            {
+                fseek(pf, posInicial, SEEK_SET);
+                return ERROR_ARCHIVO;
+            }
+        }
+
+        if(fseek(pf, header->padding, SEEK_CUR) != 0)
+        {
+            fseek(pf, posInicial, SEEK_SET);
+            return ERROR_ARCHIVO;
+        }
     }
 
-    fseek(pf, posInicial, SEEK_SET);
+    if(fseek(pf, posInicial, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
+
+    if(verbose)
+        printf("[INFO] Datos cargados correctamente\n");
+
+    return EXITO;
 }
 
 void copiar_header(t_header* original, t_header* nuevo)

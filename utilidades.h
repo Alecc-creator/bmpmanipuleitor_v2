@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+
+#include "codigos.h"
+
 #define MAX_BMP 2
 #define BYTES_X_PIXEL 3
 
@@ -32,7 +35,7 @@ typedef struct
  * @param nombreArch Ruta del archivo.
  * @param header Estructura a cargar.
  */
-void cargar_header (FILE * pf, t_header * header);
+int cargar_header (FILE * pf, t_header * header);
 
 /**
  * @brief Comprueba e imprime si el archivo es valido para procesar.
@@ -47,14 +50,14 @@ void cargar_header (FILE * pf, t_header * header);
  * @return true Si cumple las 3 condiciones
  * @return false Si no se puede abrir o no cumple alguna condicion.
  */
-bool comando_validar (t_header * header);
+int comando_validar (t_header * header);
 
 /**
  * @brief Imprime por consola la informacion del archivo.
  *
  * @param header Estructura con la informacion del archivo.
  */
-void mostrar_info (t_header * header);
+int mostrar_info (t_header * header);
 
 /**
  * @brief Imprime por consola los comandos disponibles

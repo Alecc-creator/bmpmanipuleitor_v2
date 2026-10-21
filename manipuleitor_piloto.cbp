@@ -31,6 +31,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="codigos.h" />
 		<Unit filename="comodin.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -54,6 +55,10 @@
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="matriz.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="matriz.h" />
 		<Unit filename="rotaciones.c">
 			<Option compilerVar="CC" />
 		</Unit>

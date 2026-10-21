@@ -12,20 +12,12 @@
 #include "filtros_con_parametros.h"
 #include "concatenaciones.h"
 #include "comodin.h"
+#include "matriz.h"
+#include "codigos.h"
 
 #define TAM_MAX_NOMBRE 256
 
 extern bool verbose;
-
-typedef enum
-{
-    EXITO = 0,
-    ERROR_ARGUMENTOS = 1,
-    ERROR_ARCHIVO = 2,
-    ERROR_MEMORIA = 3,
-    BMP_INVALIDO = 4
-
-} codigoRetorno;
 
 int procesar_imagen (int argc, char* argv[]);
 
@@ -53,7 +45,7 @@ int encontrarImagenes (char* argv[], char * bmpEncontrados[MAX_BMP]);
  * @return true Si cumple las 4 condiciones.
  * @return false Si no se puede abrir o no cumple alguna condicion.
  */
-bool validar_bmp (t_header * header);
+int validar_bmp (t_header * header);
 
 /**
  * @brief Reserva memoria para una matriz dinamica.
@@ -103,7 +95,7 @@ void copiar_bytes (FILE * origen, FILE * dest, int offsetDatos);
 
 void generarNombreArchivo (const char * prefijo, const char * nombreArch, const char * opcion, char * resultado, int porcentaje);
 
-void limpiarNombreArchivo(char* cad_nombre);
+int limpiarNombreArchivo(char* cad_nombre);
 
 bool esParametroUtilidad (const char * opcion);
 
@@ -111,11 +103,12 @@ int buscarPorcentaje (const char * parametro);
 
 FILE* abrir_archivo (const char * path, const char * metodo);
 
-void cargarMatriz (FILE * pf, t_pixel ** mat, t_header * header);
+int cargarMatriz (FILE * pf, t_pixel ** mat, t_header * header);
 
 void copiar_header(t_header* original, t_header* nuevo);
 
 void copiarMatriz (t_pixel** matOriginal, t_pixel** matCopia, int filas, int col);
 
+int cargarImagen(const char* nombre, FILE** archivo, t_header* header, t_pixel*** matriz);
 
 #endif // FUNCIONES_GRUPO_H_INCLUDED

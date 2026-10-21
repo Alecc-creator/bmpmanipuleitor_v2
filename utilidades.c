@@ -1,37 +1,68 @@
 #include "utilidades.h"
 
-void cargar_header (FILE * pf, t_header * header)
+int cargar_header(FILE* pf, t_header* header)
 {
-    long posInicial = ftell(pf);
+    if(pf == NULL || header == NULL)
+        return ERROR_ARGUMENTOS;
 
-    fread(header->firma, sizeof(char), 2, pf);
-    fread(&header->tamArchivo, sizeof(unsigned int), 1, pf);
+    *header = (t_header){0};
 
-    fseek(pf, 10, SEEK_SET);
-    fread(&header->offsetDatos, sizeof(unsigned int), 1, pf);
+    if(fseek(pf, 0, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
 
-    fseek(pf, 18, SEEK_SET);
-    fread(&header->ancho, sizeof(unsigned int), 1, pf);
-    fread(&header->alto, sizeof(unsigned int), 1, pf);
+    if(fread(header->firma, sizeof(char), 2, pf) != 2)
+        return ERROR_ARCHIVO;
 
-    fseek(pf, 28, SEEK_SET);
-    fread(&header->bits, sizeof(unsigned short), 1, pf);
-    fread(&header->compresion, sizeof(unsigned int), 1, pf);
-    fread(&header->tamImagen, sizeof(unsigned int), 1, pf);
+    if(fread(&header->tamArchivo, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
 
-    header->padding =  (4 - ((header->ancho * BYTES_X_PIXEL) % 4)) % 4;
+    if(fseek(pf, 10, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->offsetDatos, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    if(fseek(pf, 18, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->ancho, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->alto, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    if(fseek(pf, 28, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->bits, sizeof(unsigned short), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->compresion, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    if(fread(&header->tamImagen, sizeof(unsigned int), 1, pf) != 1)
+        return ERROR_ARCHIVO;
+
+    header->padding = (4 - ((header->ancho * BYTES_X_PIXEL) % 4)) % 4;
+
     if(header->tamImagen == 0)
         header->tamImagen = (header->ancho * BYTES_X_PIXEL + header->padding) * header->alto;
 
-    fseek(pf, posInicial, SEEK_SET);
+    return EXITO;
 }
 
-bool comando_validar (t_header * header)
+int comando_validar(t_header* header)
 {
+    if(header == NULL)
+    {
+        printf("ERROR: Cabecera invalida\n");
+        return ERROR_ARGUMENTOS;
+    }
+
     if(header->firma[0] != 'B' || header->firma[1] != 'M')
     {
         printf("Signature BMP invalido\n");
-        return false;
+        return ERROR_BMP_INVALIDO;
     }
 
     printf("Signature BMP valido\n");
@@ -39,7 +70,7 @@ bool comando_validar (t_header * header)
     if(header->bits != 24)
     {
         printf("ERROR: Profundidad de color incorrecta (%hu bits, esperado 24 bits)\n", header->bits);
-        return false;
+        return ERROR_BMP_INVALIDO;
     }
 
     printf("Profundidad de 24 bits confirmada\n");
@@ -47,24 +78,32 @@ bool comando_validar (t_header * header)
     if(header->compresion != 0)
     {
         printf("Compresion: Comprimido\n");
-        return false;
+        return ERROR_BMP_INVALIDO;
     }
 
     printf("Compresion: No comprimido\n");
-
     printf("ARCHIVO VALIDO - Listo para procesar\n");
-    return true;
+
+    return EXITO;
 }
 
-void mostrar_info (t_header * header)
+int mostrar_info(t_header* header)
 {
-    printf("Tamaño del archivo: %d bytes\n", header->tamArchivo);
-    printf("Dimensiones: %dx%d pixeles\n", header->ancho, header->alto);
-    printf("Profundida de color: %d bits\n", header->bits);
+    if(header == NULL)
+    {
+        printf("ERROR: Cabecera invalida.\n");
+        return ERROR_ARGUMENTOS;
+    }
 
-    printf("Offset de datos: %d\n", header->offsetDatos);
-    printf("Tamaño de imagen: %d bytes\n", header->tamImagen);
-    printf("Padding por fila: %d bytes\n", header->padding);
+    printf("Tamaño del archivo: %u bytes\n", header->tamArchivo);
+    printf("Dimensiones: %ux%u pixeles\n", header->ancho, header->alto);
+    printf("Profundidad de color: %hu bits\n", header->bits);
+
+    printf("Offset de datos: %u\n", header->offsetDatos);
+    printf("Tamaño de imagen: %u bytes\n", header->tamImagen);
+    printf("Padding por fila: %u bytes\n", header->padding);
+
+    return EXITO;
 }
 
 void mostrar_comandos ()
