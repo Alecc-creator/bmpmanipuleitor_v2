@@ -17,6 +17,13 @@
 
 #define TAM_MAX_NOMBRE 256
 
+typedef struct
+{
+    FILE* archivo;
+    t_header header;
+    t_pixel** matriz;
+} t_ImagenBMP;
+
 extern bool verbose;
 
 int procesar_imagen (int argc, char* argv[]);
@@ -109,6 +116,8 @@ void copiar_header(t_header* original, t_header* nuevo);
 
 void copiarMatriz (t_pixel** matOriginal, t_pixel** matCopia, int filas, int col);
 
-int cargarImagen(const char* nombre, FILE** archivo, t_header* header, t_pixel*** matriz);
+int cargarImagen(const char* nombre, t_ImagenBMP* imagen);
+
+void liberarImagen(t_ImagenBMP* imagen);
 
 #endif // FUNCIONES_GRUPO_H_INCLUDED

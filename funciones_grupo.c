@@ -21,9 +21,8 @@ int procesar_imagen (int argc, char* argv[])
         printf("[INFO] Iniciando bmpmanipuleitor...\n");
         printf("[INFO] Argumentos detectados: ");
         for(int i = 1; i < argc; i++)
-        {
             printf("%s ", argv[i]);
-        }
+
         printf("\n");
     }
 
@@ -37,81 +36,35 @@ int procesar_imagen (int argc, char* argv[])
     limpiarNombreArchivo(nombre_salida);
     unsigned int porcentaje=0;
 
-    t_header header;
-    const char * imagen = bmpEncontrados[0];
-    FILE * archEntrada = abrir_archivo(imagen, "rb");
-    if(!archEntrada)
-        return ERROR_ARCHIVO;
-    cargar_header(archEntrada, &header);
+    const char* imagen = bmpEncontrados[0];
+    t_ImagenBMP imagenBMP;
 
-    t_pixel **matriz = crearMatriz(header.alto, header.ancho);
-    if(!matriz)
-    {
-        fclose(archEntrada);
-        return ERROR_MEMORIA;
-    }
-    ret = cargarMatriz(archEntrada, matriz, &header);
+    ret = cargarImagen(imagen, &imagenBMP);
     if(ret != EXITO)
-    {
-        liberarMatriz(matriz, header.alto);
-        fclose(archEntrada);
         return ret;
-    }
 
-    t_header header2;
-    const char * imagen2 = NULL;
-    FILE * archEntrada2 = NULL;
-    t_pixel **matriz2 = NULL;
+    t_ImagenBMP imagenBMP2 = {NULL, {0}, NULL};
+    const char* imagen2 = NULL;
+
     if(cantBMP == 2)
     {
         imagen2 = bmpEncontrados[1];
-        archEntrada2 = abrir_archivo(imagen2, "rb");
-        if(!archEntrada2)
-        {
-            fclose(archEntrada);
-            liberarMatriz(matriz, header.alto);
-            return ERROR_ARCHIVO;
-        }
-        cargar_header(archEntrada2, &header2);
-        if(!validar_bmp(&header2))
-        {
-            printf("Archivo %s invalido para concatenar.\n", imagen2);
-            fclose(archEntrada);
-            liberarMatriz(matriz, header.alto);
-            fclose(archEntrada2);
-            return ERROR_ARCHIVO;
-        }
 
-        matriz2 = crearMatriz(header2.alto, header2.ancho);
-        if(!matriz2)
-        {
-            fclose(archEntrada);
-            liberarMatriz(matriz, header.alto);
-            fclose(archEntrada2);
-            return ERROR_MEMORIA;
-        }
-        ret = cargarMatriz(archEntrada2, matriz2, &header2);
+        ret = cargarImagen(imagen2, &imagenBMP2);
         if(ret != EXITO)
         {
-            liberarMatriz(matriz, header.alto);
-            liberarMatriz(matriz2, header2.alto);
-            fclose(archEntrada);
-            fclose(archEntrada2);
+            liberarImagen(&imagenBMP);
             return ret;
         }
     }
 
-    t_pixel ** matrizCopia = crearMatriz(header.alto, header.ancho);
+    t_pixel ** matrizCopia = crearMatriz(imagenBMP.header.alto, imagenBMP.header.ancho);
     if(!matrizCopia)
     {
-        liberarMatriz(matriz, header.alto);
-        fclose(archEntrada);
+        liberarImagen(&imagenBMP);
 
         if(cantBMP == 2)
-        {
-            liberarMatriz(matriz2, header2.alto);
-            fclose(archEntrada2);
-        }
+            liberarImagen(&imagenBMP2);
 
         return ERROR_MEMORIA;
     }
@@ -132,7 +85,7 @@ int procesar_imagen (int argc, char* argv[])
             if(strncmp(opcion, "--validar", strlen("--validar")) == 0 && flagFunciones[0] != 1)
             {
                 printf("Validando %s...", imagen);
-                if(!comando_validar(&header))
+                if(!comando_validar(&imagenBMP.header))
                     printf("ARCHIVO INVALIDO - No se puede procesar\n");
                 flagFunciones[0] = 1;
             }
@@ -140,28 +93,26 @@ int procesar_imagen (int argc, char* argv[])
             else if(strncmp(opcion, "--info", strlen("--info")) == 0 && flagFunciones[1] != 1)
             {
                 printf("Archivo: %s\n", imagen);
-                mostrar_info(&header);
+                mostrar_info(&imagenBMP.header);
                 flagFunciones[1] = 1;
             }
 
             else
             {
-                porcentaje=buscarPorcentaje(opcion); // por cada nueva pasada se busca porcentaje
+                porcentaje = buscarPorcentaje(opcion); // por cada nueva pasada se busca porcentaje
                 generarNombreArchivo(prefijo, imagen, opcion, nombre_salida, porcentaje);
 
                 if(bmpValidado == false)
                 {
-                    if(!validar_bmp(&header))
+                    if(!validar_bmp(&imagenBMP.header))
                     {
-                        liberarMatriz(matriz, header.alto);
-                        liberarMatriz(matrizCopia, header.alto);
-                        fclose(archEntrada);
+                        liberarImagen(&imagenBMP);
+                        liberarMatriz(matrizCopia, imagenBMP.header.alto);
+
 
                         if(cantBMP == 2)
-                        {
-                            liberarMatriz(matriz2, header2.alto);
-                            fclose(archEntrada2);
-                        }
+                            liberarImagen(&imagenBMP2);
+
                         return ERROR_BMP_INVALIDO;
                     }
 
@@ -170,104 +121,104 @@ int procesar_imagen (int argc, char* argv[])
 
                 if(strcmp(opcion, "--negativo") == 0 && flagFunciones[2] != 1)
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = negativo(archEntrada, nombre_salida, &header, matrizCopia);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = negativo(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia);
                     flagFunciones[2] = 1;
                 }
 
                 else if(strcmp(opcion, "--escala-de-grises") == 0 && flagFunciones[3] != 1)
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = escala_de_grises(archEntrada, nombre_salida, &header, matrizCopia);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = escala_de_grises(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia);
                     flagFunciones[3] = 1;
                 }
 
                 else if(strcmp(opcion, "--espejar-horizontal") == 0 && flagFunciones[4] != 1)
                 {
-                    resultado = espejar_horizontal(archEntrada, nombre_salida, &header, matriz, matrizCopia);
+                    resultado = espejar_horizontal(imagenBMP.archivo, nombre_salida, &imagenBMP.header, imagenBMP.matriz, matrizCopia);
                     flagFunciones[4] = 1;
                 }
 
                 else if(strcmp(opcion, "--espejar-vertical") == 0 && flagFunciones[5] != 1)
                 {
-                    resultado = espejar_vertical(archEntrada, nombre_salida, &header, matriz, matrizCopia);
+                    resultado = espejar_vertical(imagenBMP.archivo, nombre_salida, &imagenBMP.header, imagenBMP.matriz, matrizCopia);
                     flagFunciones[5] = 1;
                 }
 
                 else if(strcmp(opcion, "--rotar-derecha") == 0 && flagFunciones[6] != 1)
                 {
-                    resultado = rotar(archEntrada, nombre_salida, &header, matriz, DERECHA);
+                    resultado = rotar(imagenBMP.archivo, nombre_salida, &imagenBMP.header, imagenBMP.matriz, DERECHA);
                     flagFunciones[6] = 1;
                 }
 
                 else if(strcmp(opcion, "--rotar-izquierda") == 0 && flagFunciones[7] != 1)
                 {
-                    resultado = rotar(archEntrada, nombre_salida, &header, matriz, IZQUIERDA);
+                    resultado = rotar(imagenBMP.archivo, nombre_salida, &imagenBMP.header, imagenBMP.matriz, IZQUIERDA);
                     flagFunciones[7] = 1;
                 }
 
                 else if(strncmp(opcion, "--aumentar-contraste", strlen("--aumentar-contraste")) == 0 && flagFunciones[8] != 1 && porcentaje !=-1 )
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = aumentar_contraste(archEntrada, nombre_salida, &header, matrizCopia, porcentaje);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = aumentar_contraste(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia, porcentaje);
                     flagFunciones[8] = 1;
                 }
 
                 else if(strncmp(opcion, "--reducir-contraste", strlen("--reducir-contraste")) == 0 && flagFunciones[9] != 1 && porcentaje !=-1 )
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = reducir_contraste(archEntrada, nombre_salida, &header, matrizCopia, porcentaje);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = reducir_contraste(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia, porcentaje);
                     flagFunciones[9] = 1;
                 }
 
                 else if(strncmp(opcion, "--tonalidad-azul", strlen("--tonalidad-azul")) == 0 && flagFunciones[10] != 1 && porcentaje !=-1 )
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = tonalidad_azul(archEntrada, nombre_salida, &header, matrizCopia, porcentaje);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = tonalidad_azul(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia, porcentaje);
                     flagFunciones[10] = 1;
                 }
 
                 else if(strncmp(opcion, "--tonalidad-verde", strlen("--tonalidad-verde")) == 0 && flagFunciones[11] != 1 && porcentaje !=-1 )
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = tonalidad_verde(archEntrada, nombre_salida, &header, matrizCopia, porcentaje);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = tonalidad_verde(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia, porcentaje);
                     flagFunciones[11] = 1;
                 }
                 else if(strncmp(opcion, "--tonalidad-roja", strlen("--tonalidad-roja")) == 0 && flagFunciones[12] != 1 && porcentaje!=-1 )
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = tonalidad_roja(archEntrada, nombre_salida, &header, matrizCopia, porcentaje);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = tonalidad_roja(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia, porcentaje);
                     flagFunciones[12] = 1;
                 }
 
                 else if(strncmp(opcion, "--recortar", strlen("--recortar")) == 0 && flagFunciones[13] != 1 && porcentaje!=-1 )
                 {
-                    resultado = recortar(archEntrada, nombre_salida, &header, matriz, porcentaje);
+                    resultado = recortar(imagenBMP.archivo, nombre_salida, &imagenBMP.header, imagenBMP.matriz, porcentaje);
                     flagFunciones[13] = 1;
                 }
 
                 else if(strncmp(opcion, "--achicar", strlen("--achicar")) == 0 && flagFunciones[14] != 1 && porcentaje!=-1 )
                 {
-                    resultado = achicar(archEntrada,nombre_salida,&header,matriz,porcentaje);
+                    resultado = achicar(imagenBMP.archivo,nombre_salida, &imagenBMP.header, imagenBMP.matriz, porcentaje);
                     flagFunciones[14] = 1;
                 }
 
                 else if(strncmp(opcion, "--concatenar-vertical", strlen("--concatenar-vertical")) == 0 && flagFunciones[15] != 1 && cantBMP == 2)
                 {
-                    resultado = concatenar_vertical(archEntrada, archEntrada2, nombre_salida, &header, &header2, matriz, matriz2);
+                    resultado = concatenar_vertical(imagenBMP.archivo, imagenBMP2.archivo, nombre_salida, &imagenBMP.header, &imagenBMP2.header, imagenBMP.matriz, imagenBMP2.matriz);
                     flagFunciones[15] = 1;
                 }
 
                 else if(strncmp(opcion, "--concatenar-horizontal", strlen("--concatenar-horizontal")) == 0 && flagFunciones[16] != 1 && cantBMP == 2)
                 {
-                    resultado = concatenar_horizontal(archEntrada, archEntrada2, nombre_salida, &header, &header2, matriz, matriz2);
+                    resultado = concatenar_horizontal(imagenBMP.archivo, imagenBMP2.archivo, nombre_salida, &imagenBMP.header, &imagenBMP2.header, imagenBMP.matriz, imagenBMP2.matriz);
                     flagFunciones[16] = 1;
                 }
 
                 else if(strcmp(opcion, "--comodin") == 0 && flagFunciones[17] != 1)
                 {
-                    copiarMatriz(matriz, matrizCopia, header.alto, header.ancho);
-                    resultado = comodin_efecto_VHS(archEntrada, nombre_salida, &header, matrizCopia);
+                    copiarMatriz(imagenBMP.matriz, matrizCopia, imagenBMP.header.alto, imagenBMP.header.ancho);
+                    resultado = comodin_efecto_VHS(imagenBMP.archivo, nombre_salida, &imagenBMP.header, matrizCopia);
                     flagFunciones[17] = 1;
                 }
 
@@ -275,9 +226,7 @@ int procesar_imagen (int argc, char* argv[])
                 {
                     filtroValido = false;
                     if(!esParametroUtilidad(opcion))
-                    {
                         printf("Filtro invalido: %s\n", opcion);
-                    }
                 }
 
                 if(verbose && filtroValido)
@@ -302,14 +251,12 @@ int procesar_imagen (int argc, char* argv[])
         }
     }
 
-    liberarMatriz(matriz, header.alto);
-    liberarMatriz(matrizCopia, header.alto);
+    liberarMatriz(matrizCopia, imagenBMP.header.alto);
+    liberarImagen(&imagenBMP);
+
     if(cantBMP == 2)
-    {
-        liberarMatriz(matriz2, header2.alto);
-        fclose(archEntrada2);
-    }
-    fclose(archEntrada);
+        liberarImagen(&imagenBMP2);
+
 
     if(verbose)
         printf("[INFO] Proceso finalizado - %d archivos generados\n", contador);
@@ -611,5 +558,67 @@ void copiarMatriz (t_pixel** matOriginal, t_pixel** matCopia, int filas, int col
     for(int i = 0; i < filas; i++)
     {
         memcpy(matCopia[i], matOriginal[i], col * sizeof(t_pixel));
+    }
+}
+
+int cargarImagen(const char* nombre, t_ImagenBMP* imagen)
+{
+    if(nombre == NULL || imagen == NULL)
+        return ERROR_ARGUMENTOS;
+
+    imagen->archivo = NULL;
+    imagen->matriz = NULL;
+
+    imagen->archivo = abrir_archivo(nombre, "rb");
+    if(imagen->archivo == NULL)
+        return ERROR_ARCHIVO;
+
+    int ret = cargar_header(imagen->archivo, &imagen->header);
+    if(ret != EXITO)
+    {
+        fclose(imagen->archivo);
+        imagen->archivo = NULL;
+
+        return ret;
+    }
+
+    imagen->matriz = crearMatriz(imagen->header.alto, imagen->header.ancho);
+    if(imagen->matriz == NULL)
+    {
+        fclose(imagen->archivo);
+        imagen->archivo = NULL;
+
+        return ERROR_MEMORIA;
+    }
+
+    ret = cargarMatriz(imagen->archivo, imagen->matriz, &imagen->header);
+    if(ret != EXITO)
+    {
+        liberarMatriz(imagen->matriz, imagen->header.alto);
+        imagen->matriz = NULL;
+        fclose(imagen->archivo);
+        imagen->archivo = NULL;
+
+        return ret;
+    }
+
+    return EXITO;
+}
+
+void liberarImagen(t_ImagenBMP* imagen)
+{
+    if(imagen == NULL)
+        return;
+
+    if(imagen->matriz != NULL)
+    {
+        liberarMatriz(imagen->matriz, imagen->header.alto);
+        imagen->matriz = NULL;
+    }
+
+    if(imagen->archivo != NULL)
+    {
+        fclose(imagen->archivo);
+        imagen->archivo = NULL;
     }
 }
