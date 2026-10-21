@@ -6,7 +6,7 @@
 #define DERECHA 0
 #define IZQUIERDA 1
 
-bool rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** matOriginal, int metodo);
+int rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** matOriginal, int metodo);
 
 
 #endif // ROTACIONES_H_INCLUDED

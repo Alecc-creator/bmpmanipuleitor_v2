@@ -351,18 +351,26 @@ void liberarMatriz (t_pixel** mat, int filas)
     destruirMatrizGenerica(mat, filas);
 }
 
-void guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf)
+int guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf)
 {
+    if(matriz == NULL || pf == NULL)
+        return ERROR_ARGUMENTOS;
+
     unsigned char pad[3] = {0, 0, 0};
 
     for(int i = 0; i < filas; i++)
     {
         for(int j = 0; j < col; j++)
         {
-            fwrite(&matriz[i][j], sizeof(t_pixel), 1, pf);
+            if(fwrite(&matriz[i][j], sizeof(t_pixel), 1, pf) != 1)
+                return ERROR_ARCHIVO;
         }
-        fwrite(pad, sizeof(unsigned char), padding, pf);
+
+        if(fwrite(pad, sizeof(unsigned char), padding, pf) != padding)
+            return ERROR_ARCHIVO;
     }
+
+    return EXITO;
 }
 
 void copiar_bytes (FILE * origen, FILE * dest, int offsetDatos)

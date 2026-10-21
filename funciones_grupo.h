@@ -81,7 +81,7 @@ void liberarMatriz (t_pixel** mat, int filas);
  * @param padding Cantidad de bytes de padding por fila.
  * @param pf Puntero al archivo a escribir.
  */
-void guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf);
+int guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf);
 
 /**
  * @brief Copia una cantidad dada de bytes de una archivo a otro.
@@ -119,5 +119,7 @@ void copiarMatriz (t_pixel** matOriginal, t_pixel** matCopia, int filas, int col
 int cargarImagen(const char* nombre, t_ImagenBMP* imagen);
 
 void liberarImagen(t_ImagenBMP* imagen);
+
+int ejecutarFiltro(const char* opcion, t_ImagenBMP* imagen, t_ImagenBMP* imagen2, const char* nombreSalida, t_pixel** matrizCopia, unsigned int porcentaje, int* flagFunciones, int cantBMP, bool* filtroValido);
 
 #endif // FUNCIONES_GRUPO_H_INCLUDED

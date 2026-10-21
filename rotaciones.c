@@ -1,20 +1,20 @@
 #include "rotaciones.h"
 #include "funciones_grupo.h"
 
-bool rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** matOriginal, int metodo)
+int rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** matOriginal, int metodo)
 {
     int nuevoAncho = header->alto;
     int nuevoAlto = header->ancho;
 
     t_pixel **matRotada = crearMatriz(nuevoAlto, nuevoAncho);
     if(!matRotada)
-        return false;
+        return ERROR_MEMORIA;
 
     FILE *pf_dest = abrir_archivo(dest, "wb");
     if(!pf_dest)
     {
         liberarMatriz(matRotada, nuevoAlto);
-        return false;
+        return ERROR_ARCHIVO;
     }
 
     copiar_bytes(pf_origen, pf_dest, header->offsetDatos);
@@ -34,9 +34,7 @@ bool rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** m
         for(int i = 0; i < header->alto; i++)
         {
             for(int j = 0; j < header->ancho; j++)
-            {
                 matRotada[j][nuevoAncho - 1 - i] = matOriginal[i][j];
-            }
         }
     }
     else
@@ -44,9 +42,7 @@ bool rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** m
         for(int i = 0; i < header->alto; i++)
         {
             for(int j = 0; j < header->ancho; j++)
-            {
                 matRotada[nuevoAlto - 1 - j][i] = matOriginal[i][j];
-            }
         }
     }
 
@@ -66,5 +62,6 @@ bool rotar (FILE * pf_origen, const char * dest, t_header * header, t_pixel ** m
 
     liberarMatriz(matRotada, nuevoAlto);
     fclose(pf_dest);
-    return true;
+
+    return EXITO;
 }
