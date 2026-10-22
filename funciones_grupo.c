@@ -654,10 +654,34 @@ int ejecutarFiltro(const char* opcion, t_ImagenBMP* imagen, t_ImagenBMP* imagen2
         return ERROR_ARGUMENTOS;
 
     *filtroValido = true;
-
     int resultado = EXITO;
 
-    if(strcmp(opcion, "--negativo") == 0)
+    if(strcmp(opcion, "--validar") == 0)
+    {
+        if(flagFunciones[0] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        if(!comando_validar(&imagen->header))
+            resultado = ERROR_BMP_INVALIDO;
+
+        if(resultado == EXITO)
+            flagFunciones[0] = 1;
+    }
+    else if(strcmp(opcion, "--info") == 0)
+    {
+        if(flagFunciones[1] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        mostrar_info(&imagen->header);
+        flagFunciones[1] = 1;
+    }
+    else if(strcmp(opcion, "--negativo") == 0)
     {
         if(flagFunciones[2] == 1)
         {
