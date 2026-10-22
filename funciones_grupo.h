@@ -89,7 +89,7 @@ int guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FI
  * @param origen Puntero al archivo desde donde se copia.
  * @param dest Puntero al archivo donde se escribe.
  */
-void copiar_bytes (FILE * origen, FILE * dest, int offsetDatos);
+int copiar_bytes (FILE * origen, FILE * dest, int offsetDatos);
 
 /**
  * @brief Genera un cadena de caracteres con el prefijo + filtro + nombre del archivo.
@@ -120,6 +120,6 @@ int cargarImagen(const char* nombre, t_ImagenBMP* imagen);
 
 void liberarImagen(t_ImagenBMP* imagen);
 
-int ejecutarFiltro(const char* opcion, t_ImagenBMP* imagen, t_ImagenBMP* imagen2, const char* nombreSalida, t_pixel** matrizCopia, unsigned int porcentaje, int* flagFunciones, int cantBMP, bool* filtroValido);
+int ejecutarFiltro(const char* opcion, t_ImagenBMP* imagen, t_ImagenBMP* imagen2, const char* nombreSalida, t_pixel** matrizCopia, int porcentaje, int* flagFunciones, int cantBMP, bool* filtroValido);
 
 #endif // FUNCIONES_GRUPO_H_INCLUDED

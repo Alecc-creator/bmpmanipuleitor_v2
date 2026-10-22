@@ -34,7 +34,7 @@ int procesar_imagen (int argc, char* argv[])
 
     char nombre_salida[TAM_MAX_NOMBRE];
     limpiarNombreArchivo(nombre_salida);
-    unsigned int porcentaje=0;
+    int porcentaje = 0;
 
     const char* imagen = bmpEncontrados[0];
     t_ImagenBMP imagenBMP;
@@ -353,7 +353,7 @@ void liberarMatriz (t_pixel** mat, int filas)
 
 int guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FILE * pf)
 {
-    if(matriz == NULL || pf == NULL)
+    if(matriz == NULL || pf == NULL || filas < 0 || col < 0 || padding < 0 || padding > 3)
         return ERROR_ARGUMENTOS;
 
     unsigned char pad[3] = {0, 0, 0};
@@ -373,18 +373,37 @@ int guardarMatrizArchivo (t_pixel ** matriz, int filas, int col, int padding, FI
     return EXITO;
 }
 
-void copiar_bytes (FILE * origen, FILE * dest, int offsetDatos)
+int copiar_bytes(FILE *origen, FILE *dest, int offsetDatos)
 {
-    char byte;
+    if(origen == NULL || dest == NULL || offsetDatos < 0)
+        return ERROR_ARGUMENTOS;
+
     long posInicial = ftell(origen);
+
+    if(posInicial == -1L)
+        return ERROR_ARCHIVO;
+
+    unsigned char byte;
 
     for(int i = 0; i < offsetDatos; i++)
     {
-        fread(&byte, sizeof(char), 1, origen);
-        fwrite(&byte, sizeof(char), 1, dest);
+        if(fread(&byte, sizeof(byte), 1, origen) != 1)
+        {
+            fseek(origen, posInicial, SEEK_SET);
+            return ERROR_ARCHIVO;
+        }
+
+        if(fwrite(&byte, sizeof(byte), 1, dest) != 1)
+        {
+            fseek(origen, posInicial, SEEK_SET);
+            return ERROR_ARCHIVO;
+        }
     }
 
-    fseek(origen, posInicial, SEEK_SET);
+    if(fseek(origen, posInicial, SEEK_SET) != 0)
+        return ERROR_ARCHIVO;
+
+    return EXITO;
 }
 
 void generarNombreArchivo (const char * prefijo, const char * nombreArch, const char * opcion, char * resultado, int porcentaje)
@@ -564,9 +583,7 @@ void copiar_header(t_header* original, t_header* nuevo)
 void copiarMatriz (t_pixel** matOriginal, t_pixel** matCopia, int filas, int col)
 {
     for(int i = 0; i < filas; i++)
-    {
         memcpy(matCopia[i], matOriginal[i], col * sizeof(t_pixel));
-    }
 }
 
 int cargarImagen(const char* nombre, t_ImagenBMP* imagen)
@@ -629,4 +646,221 @@ void liberarImagen(t_ImagenBMP* imagen)
         fclose(imagen->archivo);
         imagen->archivo = NULL;
     }
+}
+
+int ejecutarFiltro(const char* opcion, t_ImagenBMP* imagen, t_ImagenBMP* imagen2, const char* nombreSalida, t_pixel** matrizCopia, int porcentaje, int* flagFunciones, int cantBMP, bool* filtroValido)
+{
+    if(opcion == NULL || imagen == NULL || nombreSalida == NULL || matrizCopia == NULL || flagFunciones == NULL || filtroValido == NULL)
+        return ERROR_ARGUMENTOS;
+
+    *filtroValido = true;
+
+    int resultado = EXITO;
+
+    if(strcmp(opcion, "--negativo") == 0)
+    {
+        if(flagFunciones[2] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+
+        resultado = negativo(imagen->archivo, nombreSalida, &imagen->header, matrizCopia);
+        if(resultado == EXITO)
+            flagFunciones[2] = 1;
+    }
+    else if(strcmp(opcion, "--escala-de-grises") == 0)
+    {
+        if(flagFunciones[3] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+
+        resultado = escala_de_grises(imagen->archivo, nombreSalida, &imagen->header, matrizCopia);
+        if(resultado == EXITO)
+            flagFunciones[3] = 1;
+    }
+    else if(strcmp(opcion, "--espejar-horizontal") == 0)
+    {
+        if(flagFunciones[4] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = espejar_horizontal(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, matrizCopia);
+        if(resultado == EXITO)
+            flagFunciones[4] = 1;
+    }
+    else if(strcmp(opcion, "--espejar-vertical") == 0)
+    {
+        if(flagFunciones[5] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = espejar_vertical(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, matrizCopia);
+        if(resultado == EXITO)
+            flagFunciones[5] = 1;
+    }
+    else if(strcmp(opcion, "--rotar-derecha") == 0)
+    {
+        if(flagFunciones[6] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = rotar(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, DERECHA);
+        if(resultado == EXITO)
+            flagFunciones[6] = 1;
+    }
+    else if(strcmp(opcion, "--rotar-izquierda") == 0)
+    {
+        if(flagFunciones[7] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = rotar(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, IZQUIERDA);
+        if(resultado == EXITO)
+            flagFunciones[7] = 1;
+    }
+    else if(strncmp(opcion, "--aumentar-contraste", strlen("--aumentar-contraste")) == 0)
+    {
+        if(flagFunciones[8] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = aumentar_contraste(imagen->archivo, nombreSalida, &imagen->header, matrizCopia, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[8] = 1;
+    }
+    else if(strncmp(opcion, "--reducir-contraste", strlen("--reducir-contraste")) == 0)
+    {
+        if(flagFunciones[9] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = reducir_contraste(imagen->archivo, nombreSalida, &imagen->header, matrizCopia, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[9] = 1;
+    }
+    else if(strncmp(opcion, "--tonalidad-azul", strlen("--tonalidad-azul")) == 0)
+    {
+        if(flagFunciones[10] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = tonalidad_azul(imagen->archivo, nombreSalida, &imagen->header, matrizCopia, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[10] = 1;
+    }
+    else if(strncmp(opcion, "--tonalidad-verde", strlen("--tonalidad-verde")) == 0)
+    {
+        if(flagFunciones[11] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = tonalidad_verde(imagen->archivo, nombreSalida, &imagen->header, matrizCopia, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[11] = 1;
+    }
+    else if(strncmp(opcion, "--tonalidad-roja", strlen("--tonalidad-roja")) == 0)
+    {
+        if(flagFunciones[12] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = tonalidad_roja(imagen->archivo, nombreSalida, &imagen->header, matrizCopia, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[12] = 1;
+    }
+    else if(strncmp(opcion, "--recortar", strlen("--recortar")) == 0)
+    {
+        if(flagFunciones[13] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = recortar(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[13] = 1;
+    }
+    else if(strncmp(opcion, "--achicar", strlen("--achicar")) == 0)
+    {
+        if(flagFunciones[14] == 1 || porcentaje < 0)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = achicar(imagen->archivo, nombreSalida, &imagen->header, imagen->matriz, (unsigned int)porcentaje);
+        if(resultado == EXITO)
+            flagFunciones[14] = 1;
+    }
+    else if(strcmp(opcion, "--comodin") == 0)
+    {
+        if(flagFunciones[17] == 1)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        copiarMatriz(imagen->matriz, matrizCopia, imagen->header.alto, imagen->header.ancho);
+        resultado = comodin_efecto_VHS( imagen->archivo, nombreSalida, &imagen->header, matrizCopia);
+        if(resultado == EXITO)
+            flagFunciones[17] = 1;
+    }
+    else if(strcmp(opcion, "--concatenar-vertical") == 0)
+    {
+        if(flagFunciones[15] == 1 || cantBMP != 2 || imagen2 == NULL)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = concatenar_vertical(imagen->archivo, imagen2->archivo, nombreSalida, &imagen->header, &imagen2->header, imagen->matriz, imagen2->matriz);
+        if(resultado == EXITO)
+            flagFunciones[15] = 1;
+    }
+    else if(strcmp(opcion, "--concatenar-horizontal") == 0)
+    {
+        if(flagFunciones[16] == 1 || cantBMP != 2 || imagen2 == NULL)
+        {
+            *filtroValido = false;
+            return EXITO;
+        }
+
+        resultado = concatenar_horizontal(imagen->archivo, imagen2->archivo, nombreSalida, &imagen->header, &imagen2->header, imagen->matriz, imagen2->matriz);
+        if(resultado == EXITO)
+            flagFunciones[16] = 1;
+    }
+    else
+        *filtroValido = false;
+
+    return resultado;
 }

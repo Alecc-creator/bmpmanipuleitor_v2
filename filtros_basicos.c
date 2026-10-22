@@ -97,7 +97,7 @@ int espejar_horizontal (FILE * pf_origen, const char * dest, t_header * header, 
     return EXITO;
 }
 
-bool espejar_vertical (FILE * pf_origen, const char * dest, t_header * header, t_pixel **matrizOriginal, t_pixel **matriz)
+int espejar_vertical (FILE * pf_origen, const char * dest, t_header * header, t_pixel **matrizOriginal, t_pixel **matriz)
 {
     if(pf_origen == NULL || dest == NULL || header == NULL || matrizOriginal == NULL || matriz == NULL)
         return ERROR_ARGUMENTOS;
